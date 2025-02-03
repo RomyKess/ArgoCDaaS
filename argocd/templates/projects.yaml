@@ -1,0 +1,43 @@
+{{- range $project := .Values.projects }}
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: {{ $project.name }}
+  namespace: gitops-{{ $.Values.name }}
+spec:
+  destinations:
+  {{- range $namespace := $project.allowedNamespaces }}
+  - namespace: '{{ $namespace }}'
+    server: 'https://api.*'
+  {{- end}}
+  - namespace: 'gitops-{{ $.Values.name }}'
+    server: 'https://kubernetes.default.svc'
+  sourceRepos:
+  - '*'
+  namespaceResourceBlacklist: {{ toYaml $.Values.namespaceResourceBlacklist | nindent 4 }}
+  namespaceResourceWhitelist: {{ toYaml $.Values.namespaceResourceWhitelist | nindent 4 }}
+  clusterResourceWhitelist: {{ toYaml $.Values.clusterResourceWhitelist | nindent 4 }}
+{{- if eq $.Values.global.clusterType "passive" }}
+  syncWindows:
+    - applications:
+        - '*'
+      clusters:
+        - '*'
+      duration: 24h
+      kind: deny
+      schedule: '* * * * *'
+{{- end }}
+---
+{{- end }}
+apiVerison: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: gitops-{{ .Values.name }}
+spec:
+  destinations:
+  - namespace: ''
+    server: ''
+  sourceRepos:
+  - ''
+---

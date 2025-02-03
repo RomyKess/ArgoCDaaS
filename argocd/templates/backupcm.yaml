@@ -1,0 +1,20 @@
+{{- if and (eq .Values.drType "full") (eq .Values.global.clusterType "active") }}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: argocd-backup
+  namespace: gitops-{{ .Values.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: '-1'
+data:
+  s3cfg: |
+    [default]
+    access_key = $AWS_ACCESS_KEY_ID
+    bucket_location = $AWS_DEFAULT_REGION
+    host_base = $AWS_HOST_BASE
+    host_bucket = {{ tpl .Values.backup.hostBucket . }}
+    secret_key = $AWS_SECRET_ACCESS_KEY
+    signature_v2 = True
+  upload-to-s3-script: "#!/bin/bash\n\nBUCKET={{ tpl .Values.backup.hostBucket . }}\nNUMBER_SNAPSHOTS_TO_SAVE=100\n\n# Set the data variable to add the date to the snapshot name\ndate=$(date \"+%Y-%m-%d-%H:%M\")\t\n\n# Upload the snapshot to s3\ns3cmd put /home/backup_without_label.yaml s3://$BUCKET/argocd-snapshot-$date.yaml\n\n# Get only NUMBER_SNAPSHOTS_TO_SAVE newest snapshots\nFILES=$(s3cmd ls s3://$BUCKET | sort --reverse | awk '$0 ~ /argocd-snapshot/ {print $NF}' | head -n $NUMBER_SNAPSHOTS_TO_SAVE)\nIFS=$'\\n' read -r -d '' -a files_array <<< \"$FILES\"\n# Get all snapshots in the bucket\nALL_FILES=$(s3cmd ls s3://$BUCKET | tr \" \" \"\\n\" | awk '$0 ~ /argocd-snapshot/ {print $NF}')\nIFS=$'\\n' read -r -d '' -a all_files_array <<< \"$ALL_FILES\"\n# Loop through the snapshots and delete the old ones\nfor file in \"${all_files_array[@]}\"; do\n\n if [[ ! \" ${files_array[@]} \" == \" $file \" ]]; then\n s3cmd del $file\n fi\n \ndone\n"
+---
+{{- end }}

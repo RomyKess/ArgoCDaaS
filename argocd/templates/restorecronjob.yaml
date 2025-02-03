@@ -1,0 +1,61 @@
+{{- if and (eq .Values.drType "full") (eq .Values.global.clusterType "passive") }}
+kind: CronJob
+apiVersion: batch/v1
+metadata:
+  name: argocd-restore
+  namespace: gitops-{{ .Values.name }}
+spec:
+  schedule: ''
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          volumes:
+            - name: kubeconfig
+              secret:
+                secretName: argocd-kubeconfig
+            - name: restore-configmap
+              configMap:
+                name: argocd-restore-configmap
+                items:
+                  - key: s3cfg
+                    path: .s3cfg
+                  - key: restore-script
+                    path: restore-script.sh
+                defaultMode: 493
+            - name: restore-volume
+              emptyDir: {}
+          initContainers:
+            - name: restore
+              command:
+                - /bin/sh
+              volumeMounts:
+                - name: restore-configmap
+                  mountPath: /opt/app-root/src
+                - name: restore-volume
+                  mountPath: /tmp/snapshot
+              envFrom:
+                - secretRef:
+                    name: argodcd-backup-agent-s3
+              image: 'registry/s3cmd:1.0'
+              args:
+                - '-ec'
+                - |
+                  ./restore-script.sh
+            serviceAccountName: {{ .Values.name }}-gitops-argocd-application-controller
+            containers:
+              - name: import
+                volumeMounts:
+                  - name: kubeconfig
+                    mountPath: /home/argocd/.kube/config
+                    subPath: config
+                  - name: restore-volume
+                    mountPath: /tmp/snapshot
+                image: 'registry/argocd:v2.10.3'
+                command:
+                  - /bin/sh
+                  - '-ec'
+                  - cd /tmp/snapshot && argocd admin import -n gitops-{{ .Values.name }} - < backup_without_label.yaml
+---
+{{- end }}

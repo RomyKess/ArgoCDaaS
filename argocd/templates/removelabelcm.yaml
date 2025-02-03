@@ -1,0 +1,25 @@
+{{- if and (eq .Values.drType "full) (eq .Values.global.clusterType "active") }}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: argocd-remove-label
+  namespace: gitops-{{ .Values.name }}
+data:
+  removelabel.sh: |
+    #!/bin/bash
+    INPUT_FILE="/tmp/backup-volume/backup_with_sync.yaml"
+    OUTPUT_FILE="/tmp/backup-volume/backup_without_label.yaml"
+
+    awk '
+    BEGIN {print "---" }
+    $0 ~ /kind: AppProject/ { in_project = 1 }
+    in_project && $0 ~ /app.kubernetes.io\/instance:/ {
+      next
+    }
+    in_project && $0 ~ /---/ { in_project = 0 }
+    
+    { print $0 }
+
+    ' "INPUT_FILE" > "OUTPUT_FILE"
+---
+{{- end }}

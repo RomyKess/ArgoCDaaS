@@ -1,0 +1,39 @@
+{{- if and (eq .Values.drType "full") (eq .Values.global.clusterType "active") }}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: argocd-sync-window
+  namespace: gitops-{{ .Values.name }}
+data:
+  syncwindow.sh: |
+    #!/bin/bash
+    INPUT_FILE="/tmp/backup-volume/backup.yaml"
+    OUTPUT_FILE="/tmp/backup-volume/backup_with_sync.yaml"
+
+    SYNC_WINDOW="
+      syncWindows:
+        - applications:
+            - '*'
+          clusters:
+            - '*'
+          duration: 24h
+          kind: deny
+          schedule: '* * * * *'
+    "
+
+    awk -v sync_window="$SYNC_WINDOW" '
+    BEGIN {print "---"}
+    {
+      print $0
+      if ($0 ~ /kind: AppProject/) {
+        in_project=`
+      }
+      if (in_project && $0 ~ /spec:/) {
+        print sync_window
+        in_project = 0
+      }
+    }
+    ' "$INPUT_FILE" > "$OUTPUT_FILE"
+---
+{{- end }}
+

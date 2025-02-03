@@ -1,0 +1,141 @@
+global:
+  clusterName: example
+  baseDomain: example.com
+  floatingHostname: example
+  clusterType: none
+
+name: example
+drType: empty
+backup:
+  hostBucket: argocd-{{ .Values.name }}
+
+externalSecrets:
+  secretStore: example
+
+projects:
+  - name: example-project
+    allowedNamespaces:
+      - example
+    role: example
+    sso_group:
+      - your_sso_group
+
+resourceInclusions:
+  - apiGroups:
+    - argoproj.io
+    kinds:
+    - Application
+    - ApplicationSet
+    clusters:
+    - https://kubernetes.default.svc
+
+resourceExclusions:
+  - apiGroups:
+    - argoproj.io
+    kinds:
+    - Application
+    - ApplicationSet
+    clusters:
+    - https://api.*
+
+applicationset:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+controller:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+redis:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+repo:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+server:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+  tls:
+    certificate: |
+    key: |
+dex:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+
+namespaceResourceBlacklist:
+
+namespaceResourceWhitelist:
+  - group: ''
+    kind: 'ConfigMap'
+
+clusterResourceWhitelist:
+
+defaultApplicationset:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+
+defaultController:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+
+defaultRedis:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+
+defaultRepo:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+
+defaultServer:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:
+
+defaultDex:
+  limits:
+    cpu:
+    memory:
+  requests:
+    cpu:
+    memory:

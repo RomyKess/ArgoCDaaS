@@ -1,0 +1,18 @@
+global:
+  baseDomain: example.com
+  clusterName: example
+  clusterType: none
+
+clients:
+  - name: example
+    valuesFile: example.values.yaml
+    
+/ overrides for argocd/ values per cluster    
+overrides:
+  - name: backup.hostBucket
+    value: your-bucket
+
+/ override for the argocd/ certificates
+certificates:
+  - name: server.tls.certificate
+    value: |

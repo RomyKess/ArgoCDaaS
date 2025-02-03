@@ -1,0 +1,37 @@
+{{- if eq .Values.drType "full" }}
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: argocd-backup-agent-s3
+  namespace: gitops-{{ .Values.name }}
+spec:
+  data:
+  - remoteRef:
+      key: path/argocd-s3
+      property: AWS_ACCESS_KEY_ID
+    secretKey: AWS_ACCESS_KEY_ID
+  - remoteRef:
+      key: path/argocd-s3
+      property: AWS_DEFAULT_REGION
+    secretKey: AWS_DEFAULT_REGION
+  - remoteRef:
+      key: path/argocd-s3
+      property: AWS_HOST_BASE
+    secretKey: AWS_HOST_BASE
+  - remoteRef:
+      key: path/argocd-s3
+      property: AWS_HOST_BUCKET
+    secretKey: AWS_HOST_BUCKET
+  - remoteRef:
+      key: path/argocd-s3
+      property: AWS_SECRET_ACCESS_KEY
+    secretKey: AWS_SECRET_ACCESS_KEY
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.externalSecrets.secretStore }}
+  target:
+    name: argocd-backup-agent-s3
+    template:
+      metadata: {}
+{{- end }}

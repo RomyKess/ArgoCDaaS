@@ -1,0 +1,175 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ArgoCD
+metadata:
+  name: {{ .Values.name }}-gitops
+  namespace: gitops-{{ .Values.name }}
+spec:
+  applicationSet:
+    resources:
+      limits:
+        cpu: '{{ ( default .Values.defaultApplicationset.limits.cpu .Values.applicationset.limits.cpu ) }}'
+        memory: '{{ ( default .Values.defaultApplicationset.limits.cpu .Values.applicationset.limits.memory ) }}'
+      requests:
+        cpu: '{{ ( default .Values.defaultApplicationset.limits.cpu .Values.applicationset.requests.cpu ) }}'
+        memory: '{{ ( default .Values.defaultApplicationset.limits.cpu .Values.applicationset.requests.memory ) }}'
+    extraCommandArgs:
+      - '--request-timeout 3m'
+  controller:
+    appSync: 3m0s
+    logLevel: warn
+    env:
+      - name: ARGOCD_CONTROLLER_SHARDING_ALGORITHM
+        value: round-robin
+    parallelismLimit: 20
+    processors:
+      operation: 30
+      status: 50
+    resources:
+      limits:
+        cpu:
+        memory:
+      requests:
+        cpu:
+        memory:
+    sharding:
+      enabled: true
+      replicas: {{ ( default .Values.defaultController.replicas .Values.controller.replicas ) }}
+  extraConfig:
+    accounts.admin: apiKey
+    {{- range $project := .Values.projects }}
+    accounts.{{ $project.name }}: apiKey
+    {{- end }}
+  grafana:
+    enables: false
+    ingress:
+      enabled: false
+    route:
+      enabled: false
+  ha:
+    enabled: false
+  initialSSHKnownHosts: {}
+  notifications:
+    enabled: false
+  prometheus:
+    enabled: false
+    ingress:
+      enabled: false
+    route:
+      enabled: false
+  rbac:
+    policy: |
+        {{- range $project := .Values.projects }}
+        p, role:{{ $project.role }}, clusters, get, *, allow
+        p, role:{{ $project.role }}, repositories, *, {{ $project.name }}/*, allow
+        p, role:{{ $project.role }}, logs, get, {{ $project.name }}/*, allow
+        p, role:{{ $project.role }}, applicationsets, *, {{ $project.name }}/*, allow
+        p, role:{{ $project.role }}, applications, *, {{ $project.name }}/*, allow
+        p, role:{{ $project.role }}, projects, get, {{ $project.name }}, allow
+        g, {{ $project.name }}, role:{{ $project.role }}
+        {{- range $ssogroup := $project.sso_group }}
+        g, {{ $ssogroup }}, role:{{ $project.role }}
+        {{- end }}
+        {{- end }}
+        g, owner-sso-group, role:admin
+        g, system:cluster-admins, role:admin
+
+        p, role:denyall, clusters, get, *, deny
+        p, role:denyall, repositories, *, */*. deny
+        p, role:denyall, logs, get, */*, deny
+        p, role:denyall, exec, create, */*, deny
+        p, role:denyall, applications, *, */*, deny
+        p, role:denyall, applicationsets, *, */*, deny
+        p, role:denyall, projects, *, */*, deny
+    scopes: '[groups]'
+    defaultPolicy: role:denyall
+  resourceInclusions: |
+    {{- toYaml .Values.resourceInclusions | nindent 4 }}
+  resourceExclusions: |
+    {{- toYaml .Values.resourceExclusions | nindent 4 }}
+  redis:
+    resources:
+      limits:
+        cpu:
+        memory:
+      requests:
+        cpu:
+        memory:
+  repo:
+    resources:
+      limits:
+        cpu:
+        memory:
+      requests:
+        cpu:
+        memory:
+    env:
+      - name: ARGOCD_REPO_SERVER_MAX_COMBINED_DIRECTORY_MANIFESTS_SIZE
+        value: '20M'
+  server:
+{{- if or (eq .Values.drType "empty") (eq .Values.global.clusterType "none") }}
+    host: "{{ .Values.name }}-gitops.apps.{{ .Values.global.clusterName }}.{{ .Values.global.baseDomain }}"
+{{- else if eq .Values.drType "full" }}
+{{- if eq .Values.global.clusterType "active" }}
+    host: "{{ .Values.name }}-gitops.apps.{{ .Values.global.floatingHostname }}.{{ .Values.global.baseDomain }}"
+{{- else if eq .Values.global.clusterType "passive" }}
+    host: "{{ .Values.name }}-gitops.apps.{{ .Values.global.clusterName }}.{{ .Values.global.baseDomain }}"
+{{- end }}
+{{- end }}
+    extraCommandArgs:
+      - '--enable-gzip'
+    replicas: 3
+    insecure: true
+    autoscale:
+      enabled: false
+    grpc:
+      ingress:
+        enabled: false
+    ingress:
+      enabled: false
+    resources:
+      limits:
+        cpu:
+        memory:
+      requests:
+        cpu:
+        memory:
+    route:
+      enabled: true
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
+{{- if eq .Values.drType "full" }}
+{{- if eq .Values.global.clusterType "active" }}
+        certificate: >-
+          {{- .Values.server.tls.certificate | nindent 10 }}
+        key:
+          {{- .Values.server.tls.key | nindent 10 -}}
+{{- end }}
+{{- end }}
+    service:
+      type: ''
+  helpChatURL: 'https://'
+  sso:
+    dex:
+      openShiftAuth: true
+      resourceS:
+        limits:
+          cpu:
+          memory:
+        requests:
+          cpu:
+          memory:
+    provider: dex
+  tls:
+    initialCerts:
+      gitlab.example.com: |
+        -----BEGIN CERTIFICATE-----
+        root CA
+        -----END CERTIFICATE-----
+        -----BEGIN CERTIFICATE-----
+        sub CA
+        -----END CERTIFICATE-----
+---
+
+
+

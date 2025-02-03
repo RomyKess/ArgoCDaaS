@@ -1,0 +1,75 @@
+{{- if and (eq .Values.drType "full") (eq .Values.global.clusterType "active") }}
+kind: CronJob
+apiVersion: batch/v1
+metadata:
+  name: argocd-backup
+  namespace: gitops-{{ .Values.name }}
+spec:
+  schedule: ''
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          volumes:
+            - name: kubeconfig
+              secret:
+                secretName: argocd-kubeconfig
+            - name: backup-volume
+              emptyDir: {}
+            - name: upload-configmap
+              configMap:
+                name: argocd-backup
+                items:
+                  - key: s3cfg
+                    path: .s3cfg
+                  - key: upload-to-s3-script
+                    path: upload-to-s3-script.sh
+                defaultMode: 493
+            - name: argocd-sync-window
+              configMap:
+                name: argocd-sync-window
+                defaultMode: 493
+            - name: argocd-remove-label
+              configMap:
+                name: argocd-remove-label
+                defaultMode: 493
+          restartPolicy: OnFailure
+          initContainers:
+            - name: export
+              volumeMounts:
+                - name: kubeconfig
+                  mountPath: /home/argocd/.kube/config
+                  subPath: config
+                - name: backup-volume
+                  mountPath: /tmp/backup-volume
+                - name: argocd-sync-window
+                  mountParh: /tmp/syncwindow
+                - name: argocd-remove-label
+                  mountPath: /tmp/removelabel
+              image: 'registry/argocd:v2.10,3'
+              command:
+                - /bin/sh
+                - '-c'
+                - argocd admin export -n gitops-{{ .Values.name }} > /tmp/backup-volume/backup.yaml && /tmp/syncwindow/syncwindow.sh && /tmp/removelabel/removelabel.sh
+          serviceAccountName: {{ .Values.name }}-gitops-argocd-application-controller
+          containers:
+            - name: upload
+              command:
+                - /bin/sh
+              volumeMounts:
+                - name: backup-volume
+                  mountPath: /home
+                - name: upload-configmap
+                  mountPath: /opt/app-root/src/
+              envFrom:
+                - secretRef:
+                    name: argocd-backup-agent-s3
+              image: 'registry/s3-uploader:1.1'
+              args:
+                - '-ec'
+                - |
+                  ./upload-to-s3-script.sh
+---
+{{- end }}
+

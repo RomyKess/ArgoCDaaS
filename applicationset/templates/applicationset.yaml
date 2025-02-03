@@ -1,0 +1,61 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: argocdaas-{{ .Values.global.clusterName }}
+  namespace: openshift-gitops
+spec:
+  generators:
+    - list:
+        elements:
+        {{ range $client := .Values.clients }}
+        - cluster: none
+          url: none
+          values:
+            name: {{ $client.name }}
+            valuesFile: {{ $client.valuesFile }}
+            repoURL: {{ default "https://gitlab/argocdaas.git" $client.repoURL }}
+            targetRevision: {{ default "HEAD" $client.targetRevision }}
+        {{- end }}
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  template:
+    metadata:
+      name: '{{"{{ values.name }}"}}-{{ values.global.clusterName }}'
+    spec:
+      syncPolicy:
+        automated: {}
+      destination:
+        namespace: gitops-{{"{{ values.name }}"}}
+        server: 'https://api.{{ .Values.global.clusterName }}.{{ .Values.global.baseDomain }}:6443'
+      ignoreDifferences:
+      - group: "argoproj.io"
+        kind: AppProject
+        jsonPointers:
+        - /metadata/labels
+      project: owner-project
+      source:
+        path: argocd
+        repoURL: '{{"{{ values.repoURL }}"}}'
+        targetRevision: '{{"{{ values.targetRevision }}"}}'
+        helm:
+          valueFiles: 
+          - '{{"{{ values.valuesFile }}"}}'
+          parameters:
+            {{- range $key, $value := .Values.global }}
+            - name: "global.{{ $key }}"
+              value: {{ $value }}
+            {{- end }}
+            {{- range $key := .Values.overrides }}
+            - name: {{ $key.name }}
+              value: "{{ $key.value }}"
+            {{- end }}
+            {{- range $key := .Values.certificates }}
+            - name: {{ $key.name }}
+              value: |
+                {{- $key.value | nindent 16 }}
+            {{- end }}
+
+
+
+
+
